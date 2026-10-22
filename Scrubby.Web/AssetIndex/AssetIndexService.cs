@@ -324,7 +324,11 @@ public class AssetIndexService
                 continue;
             if (parameters.RepoFilterGuid.HasValue && !sprite.RepoId.Equals(parameters.RepoFilterGuid.Value))
                 continue;
-            if (regex != null && !regex.IsMatch(sprite.Name))
+            if (regex != null && !(parameters.SearchType == 1
+                    ? regex.IsMatch(sprite.Path)
+                    : regex.IsMatch(sprite.Name)))
+                continue;
+            if (IsPlaceholderState(sprite.Name))
                 continue;
 
             response.Results.Add(new SearchResult
@@ -365,7 +369,7 @@ public class AssetIndexService
             FileHash = DeterministicGuid("sheet|" + key).ToString(),
             Name = Path.GetFileName(path),
             Path = path,
-            Sprites = sprites
+            Sprites = sprites.Where(s => !IsPlaceholderState(s.Name)).ToList()
         };
     }
 
@@ -636,10 +640,17 @@ public class AssetIndexService
         using (dmi)
         {
             foreach (var state in dmi.States)
+            {
+                if (IsPlaceholderState(state.Name)) continue;
                 yield return BuildSprite(repo, repoId, dmiPath, state.Name, state.Width, state.Height,
                     Math.Max(1, state.Dirs), Math.Max(1, state.Frames), commit);
+            }
         }
     }
+
+    // Broken/placeholder states ship in many DMIs as nameless or "ERROR" entries.
+    private static bool IsPlaceholderState(string name) =>
+        string.IsNullOrWhiteSpace(name) || string.Equals(name.Trim(), "ERROR", StringComparison.OrdinalIgnoreCase);
 
     // ---------------------------------------------------------------------
     // Deterministic model construction

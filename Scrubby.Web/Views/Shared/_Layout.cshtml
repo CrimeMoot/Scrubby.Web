@@ -2,20 +2,28 @@
 @inject IAppStatusService AppStatus
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>@ViewData["Title"] - Scrubby Icon Search</title>
+    <title>@(ViewData["Title"] != null ? $"{ViewData["Title"]} · " : "")Scrubby</title>
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('scrubby-theme');
+                if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-bs-theme', t);
+            } catch (e) { }
+        })();
+    </script>
     <link rel="stylesheet" href="/css/bundle.css"/>
     <script src="/js/bundle.js"></script>
     @await RenderSectionAsync("AddToHead", false)
 </head>
 <body>
-<nav class="navbar navbar-expand-md bg-light">
-    <div class="container-fluid">
-        <a asp-controller="Icon" asp-action="SearchIcon" class="navbar-brand">
-            <img src="~/images/ScrubbyBar.svg" height="30" width="113" class="d-inline-block align-self-center" alt="scrubby logo"/>
+<nav class="navbar navbar-expand-md sticky-top glass-nav">
+    <div class="container-fluid px-3 py-1">
+        <a asp-controller="Icon" asp-action="SearchIcon" class="navbar-brand me-3">
+            <img src="~/images/ScrubbyBar.svg" height="28" width="105" class="d-inline-block align-self-center" alt="scrubby logo"/>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -23,27 +31,44 @@
         <div class="navbar-collapse collapse" id="navbarSupportedContent">
             <ul class="navbar-nav me-auto" id="navigation">
                 <li class="nav-item">
-                    <a asp-controller="Icon" asp-action="SearchIcon" class="nav-link">Icon Search</a>
+                    <a href="/icon/search" class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Icon" && ViewContext.RouteData.Values["action"]?.ToString() == "SearchIcon" ? "active" : "")">
+                        <i class="fa fa-search me-1"></i>Icon Search
+                    </a>
                 </li>
             </ul>
+            <button type="button" class="btn btn-sm theme-toggle px-2" id="themeToggle" title="Toggle theme">
+                <i class="fa fa-sun"></i>
+            </button>
         </div>
     </div>
 </nav>
 
-<div class="container body-content">
+<main class="container body-content">
     @RenderBody()
-    <hr/>
-    <footer>
-        <div class="container small text-center text-body-secondary">
-            <div class="row justify-content-between">
-                <div class="col-12">
-                    <span class="text-nowrap">@AppStatus.GetCopyrightNotice().ToString()</span> /
-                    <span class="text-nowrap">Version @AppStatus.GetVersion().ToString() @(AppStatus.GetBuildCommit() != null ? $"({AppStatus.GetBuildCommit().ToString()})" : string.Empty)</span>
-                </div>
-            </div>
-        </div>
+    <footer class="site-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span>@AppStatus.GetCopyrightNotice().ToString()</span>
+        <span class="text-nowrap">
+            Version @AppStatus.GetVersion().ToString()@(AppStatus.GetBuildCommit() != null ? $" ({AppStatus.GetBuildCommit().ToString()})" : string.Empty)
+        </span>
     </footer>
-</div>
+</main>
+
+<script>
+    $(function () {
+        var icon = $('#themeToggle i');
+        var html = $(document.documentElement);
+        var sync = function () {
+            icon.attr('class', html.attr('data-bs-theme') === 'dark' ? 'fa fa-sun' : 'fa fa-moon');
+        };
+        sync();
+        $('#themeToggle').on('click', function () {
+            var next = html.attr('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            html.attr('data-bs-theme', next);
+            try { localStorage.setItem('scrubby-theme', next); } catch (e) { }
+            sync();
+        });
+    });
+</script>
 
 @await RenderSectionAsync("Scripts", false)
 </body>

@@ -31,12 +31,10 @@ Index details and the repository catalog: [Scrubby.Web/AssetIndex/README.md](Scr
 
 ## API
 
-Served under `/api/asset` and drop-in compatible with AssetMonitor (`am.melonmesa.com`):
-
 | Endpoint | Description |
 | --- | --- |
 | `GET  /api/asset/repo` | repository list |
-| `POST /api/asset/search` | sprite search (`searchType`, `searchPattern`, `ignoreCase`, `repoFilter`) |
+| `POST /api/asset/search` | sprite search (`searchType` 8 = state name, 1 = file path; `searchPattern`, `ignoreCase`, `repoFilter`) |
 | `GET  /api/asset/sprite/{id}` | sprite detail (directions/frames/animations) |
 | `GET  /api/asset/asset/{id}` | rendered PNG or GIF (rendered on demand) |
 | `GET  /api/asset/repo/{repo}/{path}` | all sprites in one DMI file |

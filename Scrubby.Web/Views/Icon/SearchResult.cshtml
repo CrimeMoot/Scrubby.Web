@@ -5,180 +5,409 @@
     ViewData["Title"] = "Icon Search";
 }
 
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item">
-            <a asp-controller="Home" asp-action="Index">Gateway</a>
-        </li>
-        <li class="breadcrumb-item active" aria-current="page">Icon Search</li>
-    </ol>
-</nav>
 <div id="data" class="hidden" data-obj="@JsonSerializer.Serialize(Model)"></div>
-<div class="container d-flex flex-column align-items-center">
-    <div class="row justify-content-center align-items-center">
-        <form id="searchForm" class="row" method="post" asp-controller="Icon" asp-action="SearchIconPost" asp-antiforgery="true">
-            <div class="col">
-                <input type="text" id="name" placeholder="Regex Query" class="form-control" name="query" value="@Model.SearchQuery"/>
+
+<div class="icon-hero">
+    <h1 class="hero-title display-6">Sprite search</h1>
+    <p class="hero-sub mb-0">Search every sprite, state and file across the SS13 codebase catalog — regex supported.</p>
+</div>
+
+<div class="search-card">
+    <form id="searchForm" method="post" asp-controller="Icon" asp-action="SearchIconPost" asp-antiforgery="true">
+        <div class="search-row">
+            <div class="search-input-wrap">
+                <i class="fa fa-search search-icon"></i>
+                <input type="text" id="name" placeholder="e.g. laser|bolt|lmg" class="search-input" name="query" value="@Model.SearchQuery" autocomplete="off" spellcheck="false"/>
+                <button type="button" class="search-clear" id="searchClear" title="Clear"><i class="fa fa-times"></i></button>
             </div>
-            <div class="col-auto">
-                <select id="codebase" name="codebase" placeholder="Codebase" class="form-select">
-                    <option id="defaultCodebase" selected value="@(Model.Codebase)">Loading codebases...</option>
+            <div class="flex-grow-0">
+                <select id="codebase" name="codebase" class="selectpicker" data-live-search="true" data-width="250px" title="Loading forks...">
+                    <option selected value="@(Model.Codebase)">@(Model.Codebase)</option>
                 </select>
             </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-primary mb-2">Search</button>
-                <a asp-controller="FAQ" asp-action="Index" asp-fragment="icon-search" class="ms-2 text-primary far fa-question-circle mb-2"></a>
+            <button type="submit" class="search-btn">Search</button>
+        </div>
+
+        <div class="search-tools">
+            <div class="mode-switch" role="group">
+                <button type="button" id="modeName" class="active" data-mode="8"><i class="fa fa-th"></i> Sprite name</button>
+                <button type="button" id="modePath" data-mode="1"><i class="fa fa-copy"></i> File path</button>
             </div>
-        </form>
-    </div>
-    <div>
-        <span class="badge bg-warning align-top hidden" id="icon-count">Loading icons...</span>
-    </div>
+
+            <span class="chip" data-filter="multidir"><i class="fa fa-arrows-alt"></i> Multi-direction</span>
+
+            <select id="sizeBy" class="sort-select size-select" title="Sprite size">
+                <option value="">Size: any</option>
+                <option value="large">Size: large (≥ 64 px)</option>
+                <option value="32x32">32 × 32</option>
+                <option value="32x48">32 × 48</option>
+                <option value="48x48">48 × 48</option>
+                <option value="64x64">64 × 64</option>
+                <option value="96x96">96 × 96</option>
+                <option value="128x128">128 × 128</option>
+            </select>
+
+            <select id="sortBy" class="sort-select" title="Sort">
+                <option value="name">Sort: A → Z</option>
+                <option value="framemost">Most frames</option>
+                <option value="size">Largest size</option>
+            </select>
+
+            <div class="mode-switch" id="densitySwitch" role="group" title="Grid density">
+                <button type="button" data-density="normal" title="Normal grid"><i class="fa fa-th-large"></i></button>
+                <button type="button" data-density="compact" title="Compact grid"><i class="fa fa-th"></i></button>
+            </div>
+        </div>
+    </form>
 </div>
-<div id="results-container"></div>
+
+<div id="alert-container"></div>
+
+<div class="results-meta">
+    <span id="icon-count" class="count-badge hidden">Loading sprites…</span>
+</div>
+<div id="results-container" class="sprites-grid"></div>
+
+<style>
+    #icon-count .spinner-ring { display: inline-block; margin-right: .4rem; vertical-align: -3px; }
+</style>
 
 <script>
     const amApi = "@(Config["IconSearch:ApiBaseUrl"] ?? "/api/asset")";
-    let infCont = null;
-    let records = null;
-    let drawing = false;
+    let records = null;       // everything returned by the API
+    let visible = [];         // after client-side filters + sort
+    let drawn = 0;
+    let drawing = false;      // a batch of cards is being appended right now
+    let loading = false;      // a search request is in flight
+    let requestSeq = 0;       // guards against an outdated response arriving last
     const hasInitialQuery = @(!string.IsNullOrEmpty(Model.SearchQuery) ? "true" : "false");
     let lastCodebase;
-    
+    let searchMode = 8;
+    let activeFilters = new Set();
+    let sizeFilter = '';
+    let sortBy = 'name';
+    let debounceTimer = null;
+    let lastPayload = null;   // most recent search payload, saved into history for back-navigation
+
     const searchUrlBase = "@(Url.Action("SearchIcon", "Icon", new { searchTerm = "!!1!!", codebase = "!!2!!" }))";
-    const getSearchUrl = (query, codebase) => {
-        return searchUrlBase.replace('!!1!!', query).replace('!!2!!', codebase);
-    };
-    
+    const getSearchUrl = (query, codebase) => searchUrlBase.replace('!!1!!', encodeURIComponent(query)).replace('!!2!!', codebase);
+
     const spritesheetUrlBase = "@(Url.Action("GetSpriteSheet", "Icon", new { path = "!!1!!", codebase = "!!2!!" }))";
-    const getPathUrl = (path, codebase) => {
-        return spritesheetUrlBase.replace('!!1!!', path).replace('!!2!!', codebase);
+    const getPathUrl = (path, codebase) => spritesheetUrlBase.replace('!!1!!', encodeURIComponent(path).replace(/%2F/gi, '/')).replace('!!2!!', codebase);
+
+    const dirsMap = ['S', 'N', 'E', 'W', 'SE', 'SW', 'NE', 'NW'];
+
+    const bindCodebaseChange = () => {
+        $('#codebase').off('changed.bs.select').on('changed.bs.select', function () {
+            clearTimeout(debounceTimer);
+            runSearch();
+        });
     };
-    
+
     $(document).ready(() => {
         getCodebases();
-        
-        // Initial record fetch
-        if (hasInitialQuery) {
-            $('#icon-count').removeClass('hidden');
-            fetchRecords(false);
-        }
-        
+
+        $('#name').on('input', function () {
+            $('#searchClear').toggleClass('visible', $(this).val().length > 0);
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runSearch, 400);
+        });
+
+        $('#searchClear').on('click', () => {
+            $('#name').val('').trigger('input').focus();
+        });
+
+        $('#name').on('keydown', e => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(debounceTimer);
+                runSearch();
+            }
+        });
+
         $('#searchForm').on('submit', e => {
             e.preventDefault();
-            fetchRecords(true);
+            clearTimeout(debounceTimer);
+            runSearch();
         });
 
-        infCont = $('#results-container').infiniteScroll({
-            path: 'path{{#}}',
-            loadOnScroll: false,
-            history: false
+        // mode switch
+        $('#modeName, #modePath').on('click', function () {
+            $('#modeName, #modePath').removeClass('active');
+            $(this).addClass('active');
+            searchMode = parseInt($(this).data('mode'));
+            if ($('#name').val() || records) runSearch();
         });
-        
-        infCont.on('scrollThreshold.infiniteScroll', e => {
-            e.preventDefault();
-            if (!drawing && records !== null && records.length > 0)
-                drawRecords(20);
+
+        // filter chips
+        $('.chip[data-filter]').on('click', function () {
+            $(this).toggleClass('active');
+            const f = $(this).data('filter');
+            activeFilters.has(f) ? activeFilters.delete(f) : activeFilters.add(f);
+            refreshView(true);
         });
-        
-        $(window).on('popstate', e => {
-            $('#name').val(e.originalEvent.state.searchPattern);
-            $('#codebase').val(e.originalEvent.state.repoFilter);
-            fetchRecords(false);
+
+        $('#sizeBy').on('change', function () {
+            sizeFilter = $(this).val();
+            refreshView(true);
         });
+
+        $('#sortBy').on('change', function () {
+            sortBy = $(this).val();
+            refreshView(true);
+        });
+
+        // grid density (normal / compact), persisted per browser
+        const applyDensity = d => {
+            const compact = d === 'compact';
+            $('#results-container').toggleClass('compact', compact);
+            $('#densitySwitch button').toggleClass('active', false)
+                .filter(`[data-density="${compact ? 'compact' : 'normal'}"]`).toggleClass('active', true);
+            try { localStorage.setItem('scrubby-density', d); } catch (e) { /* private mode */ }
+        };
+        let savedDensity = 'normal';
+        try { savedDensity = localStorage.getItem('scrubby-density') || 'normal'; } catch (e) { }
+        applyDensity(savedDensity);
+        $('#densitySwitch button').on('click', function () { applyDensity($(this).data('density')); });
+
+        // "/" focuses search
+        $(document).on('keydown', function (e) {
+            if (e.key === '/' && !$(e.target).is('input, select, textarea')) {
+                e.preventDefault();
+                $('#name').focus();
+            }
+        });
+
+        bindCodebaseChange();
+
+        // focus query field when nothing typed
+        if (!hasInitialQuery) $('#name').focus();
+
+        if (hasInitialQuery) {
+            $('#icon-count').removeClass('hidden');
+            // history.state carries {searchType, searchPattern, repoFilter, drawn, scrollY}
+            // when we came here via Back from a sprite sheet
+            fetchRecords(false, history.state && history.state.drawn ? history.state : null);
+        }
     });
-    
-    const drawRecords = (count) => {
-        drawing = true;
 
-        records.splice(0, count - 1).forEach(record => {
-            const recordPath = record.path.split('@@')[0];
-            $('#results-container').append($(`
-                <div class="container row icon-state-container justify-content-center">
-                    <div class="col-2">
-                        <div class="icon-box">
-                            <img src="${amApi}/asset/${record.previewAsset}" class="checkered dmi-icon" />
-                        </div>
-                    </div>
-                    <div class="col-4 icon-details">
-                        <div class="row">
-                            <div class="col-6">
-                                <h4>${record.name}</h4>
-                            </div>
-                            <div class="col-6">
-                                <button class="btn btn-outline-primary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#a${record.id}" aria-expanded="false" aria-controls="a${record.id}">
-                                    Dirs
-                                </button>
-                            </div>
-                        </div>
-                        <p class="mb-0">
-                            <b>File:</b> <a href="${getPathUrl(recordPath, lastCodebase)}">${recordPath}</a><br />
-                            <b>Dimensions:</b> ${record.width}x${record.height}<br />
-                            <b>Directions:</b> ${record.directions} <br />
-                            <b>Frames:</b> ${record.frames}
-                            ${record.animations && `<b>Animations:</b> ${record.animations}` || ''}
-                        </p>
-                        <div class="collapse" id="a${record.id}"></div>
-                    </div>
-                </div>`
-            ));
-        });
-        
-        // Setup the dir button
-        $('#results-container div.collapse').on('show.bs.collapse', e => {
-            const target = $(e.target);
-            if (target.attr('data-status') === 'rendered')
-                return;
-            
-            e.preventDefault();
-            if (target.attr('data-status') === 'loading')
-                return;
-            
-            renderDetails(target.attr('id').slice(1));
-        });
-        
-        drawing = false;
+    const runSearch = () => fetchRecords(true);
+
+    const matchesFilters = r => {
+        if (activeFilters.has('multidir') && !(r.directions > 1)) return false;
+        if (sizeFilter) {
+            if (sizeFilter === 'large') {
+                if (Math.max(r.width, r.height) < 64) return false;
+            } else {
+                const parts = sizeFilter.split('x');
+                if (r.width !== +parts[0] || r.height !== +parts[1]) return false;
+            }
+        }
+        return true;
     };
-    
-    const getCodebases = () => {
-        const request = $.ajax({
-            url: `${amApi}/repo`,
-            type: 'GET',
-            contentType: 'application/json; charset=utf-8'
-        });
-        
-        request.done(data => {
-            const selectedCodebase = $('#defaultCodebase').val();
-            
-            // Sort codebases
-            data.sort((a, b) => {
-                const aComp = a.displayName.toUpperCase();
-                const bComp = b.displayName.toUpperCase();
-                return aComp < bComp ? -1 : (aComp > bComp ? 1 : 0);
-            });
-            
-            $('#codebase')
-                .empty()
-                .append($(data.map(x => `<option value="${x.name}" ${x.name === selectedCodebase && "selected" || ""}>${x.displayName}</option>`).join()));
-        });
+
+    const sorters = {
+        name: (a, b) => a.name.localeCompare(b.name),
+        framemost: (a, b) => (b.frames * (b.directions || 1)) - (a.frames * (a.directions || 1)) || a.name.localeCompare(b.name),
+        size: (a, b) => (b.width * b.height) - (a.width * a.height) || a.name.localeCompare(b.name)
     };
-    
-    const fetchRecords = (addHistory) => {
+
+    const refreshView = (redraw) => {
+        if (!records) return;
+        visible = records.filter(matchesFilters).sort(sorters[sortBy]);
+        drawn = 0;
+        if (redraw) {
+            $('#results-container').empty();
+            const total = records.length;
+            const badge = $('#icon-count');
+            const text = visible.length === total
+                ? `${total} sprite${total === 1 ? '' : 's'}`
+                : `${visible.length} of ${total} sprites`;
+            badge.toggleClass('hidden', false)
+                .toggleClass('ok', total > 0)
+                .toggleClass('empty', total === 0)
+                .text(total > 0 ? text : 'No sprites found');
+            drawNext(24);
+        }
+    };
+
+    // legacy alias used by infinite scroll
+    const drawRecords = (count) => drawNext(count);
+
+    const drawNext = (count) => {
+        if (drawing) return;
+        const slice = visible.slice(drawn, drawn + count);
+        if (slice.length === 0) { handleEmptyState(); return; }
         drawing = true;
-        
+        slice.forEach(record => {
+            const recordPath = record.path.split('@@')[0];
+            const previewAsset = record.previewAsset;
+            const fileLabel = recordPath.split('/').pop();
+
+            const card = $(`
+                <div class="sprite-card" data-id="${record.id}" data-preview="${previewAsset}">
+                    <button class="preview-zone" type="button" aria-expanded="false">
+                        <img src="${amApi}/asset/${previewAsset}" class="preview-img" alt="${record.name}" loading="lazy"/>
+                        ${record.animations > 0 ? `<span class="preview-anim-tag"><i class="fa fa-film"></i> animated</span>` : ''}
+                    </button>
+                    <div class="sprite-body">
+                        <h5 class="sprite-name">${record.name}</h5>
+                        <a class="sprite-file" href="${getPathUrl(recordPath, lastCodebase)}" title="${recordPath}">${fileLabel}</a>
+                        <div class="sprite-meta">
+                            <span class="meta-pill mono">${record.width}×${record.height}</span>
+                            <span class="meta-pill"><i class="fa fa-arrows-alt"></i> ${record.directions || 1} dir</span>
+                            <span class="meta-pill extra-pill"><i class="fa fa-copy"></i> ${record.frames} frame${record.frames === 1 ? '' : 's'}</span>
+                            ${record.animations > 0 ? `<span class="meta-pill extra-pill"><i class="fa fa-film"></i> ${record.animations} anim</span>` : ''}
+                        </div>
+                        <div class="sprite-actions">
+                            <button class="mini-btn dir-toggle" type="button"><i class="fa fa-expand"></i> Frames</button>
+                            <button class="mini-btn copy-img" type="button" title="Copy image (JPEG)"><i class="fa fa-copy"></i> Image</button>
+                        </div>
+                    </div>
+                    <div class="dirs-panel collapse" id="d${record.id}"><div class="panel-inner dirs-grid"></div></div>
+                </div>`);
+
+            $('#results-container').append(card);
+        });
+        drawn += slice.length;
+        drawing = false;
+        handleEmptyState();
+    };
+
+    const handleEmptyState = () => {
+        if (records && records.length > 0 && visible.length === 0 && drawn === 0) {
+            $('#results-container').html(`
+                <div class="text-center py-5 w-100">
+                    <h5 class="text-muted-2">Nothing matches the active tags</h5>
+                    <p class="text-muted-2 mb-0">Try removing a filter chip above.</p>
+                </div>`);
+        }
+    };
+
+    // expand dirs / animated previews on click
+    $('#results-container').on('click', '.preview-zone, .dir-toggle', e => {
+        e.preventDefault();
+        const card = $(e.target).closest('.sprite-card');
+        renderDetails(card);
+    });
+
+    $('#results-container').on('click', '.copy-img', function () {
+        copyImage($(this), $(this).closest('.sprite-card'));
+    });
+
+    // Copies the rendered sprite to the clipboard as a JPEG image.
+    // If the browser refuses (insecure origin / no clipboard-image support), the JPEG is downloaded as a file instead.
+    const copyImage = async (btn, card) => {
+        const asset = card.attr('data-preview');
+        const flash = (ok, note) => {
+            if (note) btn.attr('title', note);
+            btn.toggleClass('copied', ok);
+            setTimeout(() => btn.removeClass('copied'), 900);
+        };
+
+        const asJpeg = async () => {
+            const r = await fetch(`${amApi}/asset/${asset}`);
+            if (!r.ok) throw new Error('asset fetch failed');
+            return await jpegFromBlob(await r.blob());
+        };
+
+        try {
+            const jpeg = await asJpeg();
+            if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/jpeg': jpeg })]);
+                flash(true);
+                return;
+            }
+            throw new Error('no clipboard image support');
+        } catch (e1) {
+            try {
+                const jpeg = await asJpeg();
+                const url = URL.createObjectURL(jpeg);
+                const a = document.createElement('a');
+                const name = card.find('.sprite-name').text() || 'sprite';
+                a.href = url;
+                a.download = `${name.replace(/[\\/:*?"<>|]/g, '_')}.jpg`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+                flash(true, 'Saved as file');
+            } catch (e2) {
+                flash(false);
+            }
+        }
+    };
+
+    // GIF previews land on their first frame; PNG keeps transparency outside the frame with JPEG-white.
+    const jpegFromBlob = (blob) => new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = () => {
+            URL.revokeObjectURL(url);
+            const w = Math.max(image.naturalWidth, 1);
+            const h = Math.max(image.naturalHeight, 1);
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000'; // JPEG has no alpha; black background matches the dark theme
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(image, 0, 0, w, h);
+            canvas.toBlob(b => b ? resolve(b) : reject(new Error('jpeg encode failed')), 'image/jpeg', 0.92);
+        };
+        image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load failed')); };
+        image.src = url;
+    });
+
+    const getCodebases = () => {
+        const request = $.ajax({ url: `${amApi}/repo`, type: 'GET', contentType: 'application/json; charset=utf-8' });
+
+        request.done(data => {
+            const selectedCodebase = $('#codebase').val();
+            data.sort((a, b) => a.displayName.toUpperCase().localeCompare(b.displayName.toUpperCase()));
+
+            const options = data.map(x =>
+                `<option value="${x.name}" ${x.name === selectedCodebase ? 'selected' : ''}>${x.displayName}</option>`).join('');
+
+            // Full teardown + rebuild: some bundled bootstrap-select builds
+            // concatenate stale button text on refresh(), so the picker is
+            // re-created from scratch (class + data-* attrs are re-read on init).
+            const $select = $('#codebase');
+            $select.selectpicker('destroy');
+            $select.html(options).attr('title', 'Select a fork');
+            $select.selectpicker();
+            bindCodebaseChange();
+        });
+
+        request.fail(() => {
+            const alert = $(`
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <strong>Failed to load the fork list</strong> — the sprite index may still be building on GitHub.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>`);
+            $('#alert-container').append(alert);
+        });
+    };
+
+    const fetchRecords = (addHistory, restore) => {
+        if (loading) return;
+        loading = true;
+        const seq = ++requestSeq;
+        $('#icon-count').removeClass('hidden empty ok').addClass('count-badge')
+            .html('<span class="spinner-ring"></span>Loading sprites…');
+
         const payload = {
-            searchType: 8, // sprite | image
+            searchType: searchMode,
             searchPattern: $('#name').val(),
             ignoreCase: true,
             repoFilter: $('#codebase').val()
         };
-        
-        // Set URL
-        const stateMod = records === null ? history.replaceState.bind(history) : history.pushState.bind(history);
-        if (addHistory)
-            stateMod(payload, null,  getSearchUrl(payload.searchPattern, payload.repoFilter));
+        lastPayload = payload;
+
+        const stateMod = (records === null || restore) ? history.replaceState.bind(history) : history.pushState.bind(history);
+        if (addHistory) stateMod(payload, null, getSearchUrl(payload.searchPattern, payload.repoFilter));
         lastCodebase = payload.repoFilter;
-        
+
         const request = $.ajax({
             url: `${amApi}/search`,
             type: 'POST',
@@ -186,95 +415,110 @@
             contentType: 'application/json; charset=utf-8',
             dataType: 'json'
         });
-        
-        request.done(data => {
-            records = data.results;
-            
-            // Update the icon search counter
-            const iconCount = $('#icon-count');
-            iconCount
-                .removeClass('bg-warning')
-                .removeClass('bg-success')
-                .removeClass('bg-danger');
-            if (records.length > 0)
-                iconCount.addClass('bg-success').text(`${records.length} Icons`);
-            else
-                iconCount.addClass('bg-danger').text('No icons found');
 
-            $('#results-container').empty();
-            drawRecords(20);
+        request.done(data => {
+            if (seq !== requestSeq) return;
+            records = data.results;
+            refreshView(true);
+            // coming back via browser Back: silently redraw what was on screen
+            if (restore) {
+                if (restore.drawn > 24) {
+                    let guard = 0;
+                    while (drawn < restore.drawn && ++guard < 40) drawNext(48);
+                }
+                if (restore.scrollY) window.scrollTo(0, restore.scrollY);
+            }
         });
-        
+
         request.fail(error => {
+            if (seq !== requestSeq) return;
             $('#alert-container').append($(`
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <strong>Failed to perform search:</strong> ${error.responseText}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>`));
-            
-            $('#icon-count').removeClass('bg-warning').addClass('bg-danger').text('Search failed');
+            $('#icon-count').removeClass('ok').addClass('empty').text('Search failed');
         });
-        
+
         request.always(() => {
-            drawing = false;
+            if (seq === requestSeq) loading = false;
         });
     };
-    
-    const dirsMap = ['S', 'N', 'E', 'W', 'SE', 'SW', 'NE', 'NW'];
-    
-    const renderDetails = (id) => {
-        const container = $(`#a${id}`);
-        const button = $(`button[data-target="#a${id}"]`);
-        button.prop('disabled', true).text('Loading...');
-        container.attr('data-status', 'loading');
-        
-        const request = $.ajax({
-            url: `${amApi}/sprite/${id}`,
-            type: 'GET',
-            dataType: 'json'
-        });
-        
-        request.done(data => {
-            const resultContainer = $(`<div class="icon-box mt-2 mb-2"></div>`);
-            for (let dir = 0; dir < data.dirs; dir++) {
-                if (data.renderedAnimations) {
-                    const anim = data.renderedAnimations.find(e => e.direction === dir);
-                    if (anim !== undefined)
-                        resultContainer.append($(`
-                            <div class="icon-box-inner mb-2">
-                                <div class="icon-direction">${dirsMap[dir]}/GIF</div>
-                                <img src="${amApi}/asset/${anim.asset.id}" class="checkered dmi-icon" />
-                            </div>`));
+
+    const renderDetails = (card) => {
+        const panel = card.find('.dirs-panel');
+        if (panel.attr('data-status') === 'rendered') {
+            panel.collapse('toggle');
+            return;
+        }
+        if (panel.attr('data-status') === 'loading') return;
+        const id = card.attr('data-id');
+        panel.attr('data-status', 'loading');
+        const button = card.find('.dir-toggle');
+        button.prop('disabled', true);
+
+        $.ajax({ url: `${amApi}/sprite/${id}`, type: 'GET', dataType: 'json' })
+            .done(data => {
+                const grid = panel.find('.dirs-grid').empty();
+                for (let dir = 0; dir < data.dirs; dir++) {
+                    if (data.renderedAnimations) {
+                        const anim = data.renderedAnimations.find(e => e.direction === dir);
+                        if (anim !== undefined)
+                            grid.append($(`<div class="dir-cell"><div class="dir-label">${dirsMap[dir]}/GIF</div><img src="${amApi}/asset/${anim.asset.id}" alt="${dirsMap[dir]} animated"/></div>`));
+                    }
+                    const frames = data.spriteFrames.filter(e => e.direction === dir);
+                    if (frames === undefined) continue;
+                    frames.forEach(frameData => {
+                        grid.append(`<div class="dir-cell"><div class="dir-label">${dirsMap[dir]}/F${frameData.frame + 1}</div><img src="${amApi}/asset/${frameData.asset.id}" alt="${dirsMap[dir]} frame ${frameData.frame + 1}"/></div>`);
+                    });
                 }
-                
-                const frames = data.spriteFrames.filter(e => e.direction === dir);
-                if (frames === undefined || frames.length === 0)
-                    continue;
-            
-                frames.forEach(frameData => {
-                    resultContainer.append(`
-                        <div class="icon-box-inner ${frameData.frame !== 0 ? 'mt-2' : ''} ${dir === data.dirs - 1 && frameData.frame === frames.length - 1 ? '' : 'mb-2'}">
-                            <div class="icon-direction">${dirsMap[dir]}/F${frameData.frame + 1}</div>
-                            <img src="${amApi}/asset/${frameData.asset.id}" class="checkered dmi-icon" />
-                        </div>`);
-                });
-            }
-            container.append(resultContainer);
-            
-            // open container after completed
-            container.attr('data-status', 'rendered').collapse('show');
-        });
-        
-        request.fail(error => {
-            $('#alert-container').append($(`
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Failed to get sprite details:</strong> ${error.responseText}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>`));
-        });
-        
-        request.always(() => {
-            button.prop('disabled', false).text('Dirs');
-        });
+                panel.attr('data-status', 'rendered').collapse('show');
+            })
+            .fail(error => {
+                panel.attr('data-status', 'error').collapse('hide');
+                $('#alert-container').append($(`
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>Failed to get sprite details:</strong> ${error.responseText}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`));
+            })
+            .always(() => button.prop('disabled', false));
     };
+
+    // infinite scrolling over the filtered list
+    $(function () {
+        $(window).on('scroll', function () {
+            if (drawing || records === null) return;
+            if ($(window).scrollTop() + $(window).height() >= $(document).height() - 400)
+                drawNext(24);
+        });
+        $(window).on('popstate', function (e) {
+            const state = e.originalEvent.state;
+            if (!state) return;
+            if (state.searchType) {
+                searchMode = state.searchType;
+                $('#modeName, #modePath').toggleClass('active', false);
+                $('#modeName').toggleClass('active', searchMode === 8);
+                $('#modePath').toggleClass('active', searchMode === 1);
+            }
+            $('#name').val(state.searchPattern);
+            $('#codebase').selectpicker('val', state.repoFilter);
+            fetchRecords(false, state);
+        });
+
+        // augment the current history entry with scroll/drawn state before
+        // navigating to a sprite sheet, so Back restores this exact view
+        $('#results-container').on('click', '.sprite-file', function () {
+            const state = Object.assign({}, lastPayload || {
+                searchType: searchMode,
+                searchPattern: $('#name').val(),
+                ignoreCase: true,
+                repoFilter: $('#codebase').val()
+            }, {
+                drawn: drawn,
+                scrollY: Math.round(window.scrollY)
+            });
+            history.replaceState(state, null, location.href);
+        });
+    });
 </script>

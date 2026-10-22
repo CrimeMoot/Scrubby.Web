@@ -1,8 +1,8 @@
 <Project>
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
-        <Authors>MelonMesa</Authors>
-        <Copyright>Copyright © $([System.DateTime]::Now.Year) MelonMesa</Copyright>
+        <Authors>CrimeMoot</Authors>
+        <Copyright>Copyright © $([System.DateTime]::Now.Year) CrimeMoot</Copyright>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
         <ContainerRuntimeIdentifier>linux-x64</ContainerRuntimeIdentifier>
         <ContainerRegistry>ghcr.io</ContainerRegistry>

@@ -283,7 +283,7 @@
     "name": "paradise-ru",
     "displayName": "Paradise Station RU",
     "gitURL": "https://github.com/ss220-space/Paradise.git",
-    "defaultBranch": "master",
+    "defaultBranch": "master220",
     "assetLicense": "CC BY-SA 3",
     "enabled": true
   },
@@ -299,7 +299,7 @@
     "name": "onyxbay",
     "displayName": "OnyxBay",
     "gitURL": "https://github.com/ChaoticOnyx/OnyxBay.git",
-    "defaultBranch": "master",
+    "defaultBranch": "dev",
     "assetLicense": "CC BY-SA 3",
     "enabled": true
   },

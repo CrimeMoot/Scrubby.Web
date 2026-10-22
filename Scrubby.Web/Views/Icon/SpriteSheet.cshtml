@@ -4,240 +4,263 @@
 @{
     var pathComponents = Model.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
     var filename = pathComponents.Last();
-    ViewData["Title"] = $"{filename}";
+    ViewData["Title"] = $"{filename} · Icon Search";
 }
 
-<nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item">
-            <a asp-controller="Home" asp-action="Index">Gateway</a>
-        </li>
-        <li class="breadcrumb-item">DMI</li>
-        @for (var i = 0; i < pathComponents.Length - 1; i++)
-        {
-            <li class="breadcrumb-item">@pathComponents[i]</li>
-        }
-        <li class="breadcrumb-item active" aria-current="page">@filename</li>
-    </ol>
-</nav>
 <div id="data" class="hidden" data-obj="@JsonSerializer.Serialize(Model)"></div>
-<div class="text-center">
-    <h1>@filename</h1>
-    <span id="repo-name" class="badge bg-secondary hidden"></span>
-    <span class="badge bg-warning" id="icon-count">Loading icons...</span>
-    <a id="github-link" class="badge bg-primary hidden" href="https://github.com/tgstation/tgstation/tree/master/@(string.Join('/', pathComponents))">View on GitHub</a>
+
+<div class="dmi-toolbar">
+    <a id="back-btn" class="dmi-repo-chip" href="/icon/search"><i class="fa fa-arrow-left"></i> Back</a>
+    <span class="dmi-repo-chip" id="repo-name"><i class="fa fa-code-branch"></i> Loading fork…</span>
+    <h1 class="dmi-title mono" id="dmi-title">@filename</h1>
+    <a id="github-link" class="dmi-repo-chip ms-auto" target="_blank" rel="noopener">
+        <i class="fa fa-code-branch"></i> View on GitHub
+    </a>
+    <span id="icon-count" class="count-badge"><span class="spinner-ring"></span>Loading sprites…</span>
+    <div class="mode-switch" id="densitySwitch" role="group" title="Grid density">
+        <button type="button" data-density="normal" title="Normal grid"><i class="fa fa-th-large"></i></button>
+        <button type="button" data-density="compact" title="Compact grid"><i class="fa fa-th"></i></button>
+    </div>
 </div>
-<div id="results-container"></div>
+<div class="text-muted-2 mb-2 mono" style="font-size:.8rem">@Model.Path</div>
+
+<div id="alert-container"></div>
+<div id="results-container" class="sprites-grid"></div>
 
 <script>
     const amApi = "@(Config["IconSearch:ApiBaseUrl"] ?? "/api/asset")";
-    const urlBase = "@(Context.Request.Scheme)://@(Context.Request.Host)/dmi";
-    let infCont = null;
     let records = null;
     let drawing = false;
     let model = null;
     let filePath = null;
-    
+    const dirsMap = ['S', 'N', 'E', 'W', 'SE', 'SW', 'NE', 'NW'];
+
+    const spritesheetUrlBase = "@(Url.Action("GetSpriteSheet", "Icon", new { path = "!!1!!", codebase = "!!2!!" }))";
+    const getPathUrl = (path, codebase) => spritesheetUrlBase.replace('!!1!!', encodeURIComponent(path).replace(/%2F/gi, '/')).replace('!!2!!', codebase);
+
     $(document).ready(() => {
         model = JSON.parse($('#data').attr('data-obj'));
-
-        // Initial record fetch
         fetchRecords();
         getRepoDetails();
-        
-        infCont = $('#results-container').infiniteScroll({
-            path: 'path{{#}}',
-            loadOnScroll: false,
-            history: false
+
+        // grid density (normal / compact), persisted per browser
+        const applyDensity = d => {
+            const compact = d === 'compact';
+            $('#results-container').toggleClass('compact', compact);
+            $('#densitySwitch button').toggleClass('active', false)
+                .filter(`[data-density="${compact ? 'compact' : 'normal'}"]`).toggleClass('active', true);
+            try { localStorage.setItem('scrubby-density', d); } catch (e) { /* private mode */ }
+        };
+        let savedDensity = 'normal';
+        try { savedDensity = localStorage.getItem('scrubby-density') || 'normal'; } catch (e) { }
+        applyDensity(savedDensity);
+        $('#densitySwitch button').on('click', function () { applyDensity($(this).data('density')); });
+
+        // prefer the real history entry (restores search query, drawn count and scroll)
+        $('#back-btn').on('click', function (e) {
+            if (document.referrer && new URL(document.referrer).origin === location.origin) {
+                e.preventDefault();
+                history.back();
+            }
         });
-        
-        infCont.on('scrollThreshold.infiniteScroll', e => {
-            e.preventDefault();
-            if (!drawing && records !== null && records.length > 0)
-                drawRecords(20);
+
+        $(window).on('scroll', function () {
+            if (drawing || records === null) return;
+            if ($(window).scrollTop() + $(window).height() >= $(document).height() - 400)
+                drawRecords(24);
         });
     });
-    
-    const spritesheetUrlBase = "@(Url.Action("GetSpriteSheet", "Icon", new { path = "!!1!!", codebase = "!!2!!" }))";
-    const getPathUrl = (path, codebase) => {
-        return spritesheetUrlBase.replace('!!1!!', path).replace('!!2!!', codebase);
-    };
-    
+
     const setFileLink = (repoUrl) => {
         $('#github-link')
-            .attr('href', `${repoUrl}/blob/HEAD/@(string.Join('/', pathComponents))`)
-            .removeClass('hidden');
+            .attr('href', `${repoUrl}/blob/HEAD/@(string.Join('/', pathComponents))`);
     };
-    
+
     const getRepoDetails = () => {
         const request = $.ajax({
             url: `${amApi}/repo`,
             type: 'GET',
             contentType: 'application/json; charset=utf-8'
         });
-        
+
         request.done(data => {
             const desiredRepo = data.find(x => x.name === "@Model.Codebase");
-            if (desiredRepo === null || desiredRepo === undefined)
-                return;
-            
+            if (desiredRepo === null || desiredRepo === undefined) return;
             $('#repo-name')
                 .text(desiredRepo.displayName)
-                .removeClass('hidden');
+                .addClass('ok');
             setFileLink(desiredRepo.gitURL.replace('.git', ''));
         });
     };
-    
+
     const drawRecords = (count) => {
         drawing = true;
-
         records.splice(0, count - 1).forEach(record => {
-            // Determine preview asset
-            const previewAsset = record.renderedAnimations && record.renderedAnimations.length > 0 
-                ? record.renderedAnimations[0].asset.id 
+            const previewAsset = record.renderedAnimations && record.renderedAnimations.length > 0
+                ? record.renderedAnimations[0].asset.id
                 : record.spriteFrames[0].asset.id;
-            
+
             $('#results-container').append($(`
-                <div class="container row icon-state-container justify-content-center">
-                    <div class="col-2">
-                        <div class="icon-box">
-                            <img src="${amApi}/asset/${previewAsset}" class="checkered dmi-icon" />
+                <div class="sprite-card" data-id="${record.id}" data-preview="${previewAsset}">
+                    <button class="preview-zone" type="button" aria-expanded="false">
+                        <img src="${amApi}/asset/${previewAsset}" class="preview-img" alt="${record.name}" loading="lazy"/>
+                        ${record.renderedAnimations && record.renderedAnimations.length > 0 ? `<span class="preview-anim-tag"><i class="fa fa-film"></i> animated</span>` : ''}
+                    </button>
+                    <div class="sprite-body">
+                        <h5 class="sprite-name">${record.name}</h5>
+                        <div class="sprite-meta">
+                            <span class="meta-pill mono">${record.width}×${record.height}</span>
+                            <span class="meta-pill"><i class="fa fa-arrows-alt"></i> ${record.dirs || 1} dir</span>
+                            <span class="meta-pill extra-pill"><i class="fa fa-copy"></i> ${record.frames} frame${record.frames === 1 ? '' : 's'}</span>
+                            ${record.renderedAnimations && record.renderedAnimations.length > 0 ? `<span class="meta-pill extra-pill"><i class="fa fa-film"></i> anim</span>` : ''}
+                        </div>
+                        <div class="sprite-actions">
+                            <button class="mini-btn dir-toggle" type="button"><i class="fa fa-expand"></i> Frames</button>
+                            <button class="mini-btn copy-img" type="button" title="Copy image (JPEG)"><i class="fa fa-copy"></i> Image</button>
                         </div>
                     </div>
-                    <div class="col-4 icon-details">
-                        <div class="row">
-                            <div class="col-6">
-                                <h4>${record.name}</h4>
-                            </div>
-                            <div class="col-6">
-                                <button class="btn btn-outline-primary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#a${record.id}" aria-expanded="false" aria-controls="a${record.id}">
-                                    Dirs
-                                </button>
-                            </div>
-                        </div>
-                        <p class="mb-0">
-                            <b>File:</b> <a href="${getPathUrl(filePath, "@Model.Codebase")}">${filePath}</a><br />
-                            <b>Dimensions:</b> ${record.width}x${record.height}<br />
-                            <b>Directions:</b> ${record.dirs} <br />
-                            <b>Frames:</b> ${record.frames}
-                            ${record.renderedAnimations && `<b>Animations:</b> ${record.renderedAnimations.length}` || ''}
-                        </p>
-                        <div class="collapse" id="a${record.id}"></div>
-                    </div>
-                </div>`
-            ));
+                    <div class="dirs-panel collapse"><div class="panel-inner dirs-grid"></div></div>
+                </div>`));
         });
-        
-        // Setup the dir button
-        $('#results-container div.collapse').on('show.bs.collapse', e => {
-            const target = $(e.target);
-            if (target.attr('data-status') === 'rendered')
-                return;
-            
-            e.preventDefault();
-            if (target.attr('data-status') === 'loading')
-                return;
-            
-            renderDetails(target.attr('id').slice(1));
-        });
-        
         drawing = false;
     };
-    
+
     const fetchRecords = () => {
         drawing = true;
-        
+
         const request = $.ajax({
             url: `${amApi}/repo/@(Model.Codebase)/${model.Path}`,
             type: 'GET',
             dataType: 'json'
         });
-        
+
         request.done(data => {
             records = data.sprites;
             filePath = data.path;
-            
-            // Update the icon search counter
-            const iconCount = $('#icon-count');
-            iconCount.removeClass('bg-warning');
-            if (records.length > 0)
-                iconCount.addClass('bg-success').text(`${records.length} Icons`);
-            else
-                iconCount.addClass('bg-danger').text('No icons found');
-
-            drawRecords(20);
+            $('#icon-count')
+                .html(`${records.length} sprite${records.length === 1 ? '' : 's'}`)
+                .toggleClass('ok', records.length > 0)
+                .toggleClass('empty', records.length === 0);
+            drawRecords(24);
         });
-        
+
         request.fail(error => {
             $('#alert-container').append($(`
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     <strong>Failed to load spritesheet:</strong> ${error.status === 404 ? 'File not found' : error.responseText}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>`));
-            
-            $('#icon-count').removeClass('bg-warning').addClass('bg-danger').text('Failed to load');
+            $('#icon-count').text('Failed to load').addClass('empty');
         });
-        
-        request.always(() => {
-            drawing = false;
-        });
+
+        request.always(() => { drawing = false; });
     };
-    
-    const dirsMap = ['S', 'N', 'E', 'W', 'SE', 'SW', 'NE', 'NW'];
-    
-    const renderDetails = (id) => {
-        const container = $(`#a${id}`);
-        const button = $(`button[data-target="#a${id}"]`);
-        button.prop('disabled', true).text('Loading...');
-        container.attr('data-status', 'loading');
-        
-        const request = $.ajax({
-            url: `${amApi}/sprite/${id}`,
-            type: 'GET',
-            dataType: 'json'
-        });
-        
-        request.done(data => {
-            const resultContainer = $(`<div class="icon-box mt-2 mb-2"></div>`);
-            for (let dir = 0; dir < data.dirs; dir++) {
-                if (data.renderedAnimations) {
-                    const anim = data.renderedAnimations.find(e => e.direction === dir);
-                    if (anim !== undefined)
-                        resultContainer.append($(`
-                            <div class="icon-box-inner mb-2">
-                                <div class="icon-direction">${dirsMap[dir]}/GIF</div>
-                                <img src="${amApi}/asset/${anim.asset.id}" class="checkered dmi-icon" />
-                            </div>`));
-                }
-                
-                const frames = data.spriteFrames.filter(e => e.direction === dir);
-                if (frames === undefined || frames.length === 0)
-                    continue;
-            
-                frames.forEach(frameData => {
-                    resultContainer.append(`
-                        <div class="icon-box-inner ${frameData.frame !== 0 ? 'mt-2' : ''} ${dir === data.dirs - 1 && frameData.frame === frames.length - 1 ? '' : 'mb-2'}">
-                            <div class="icon-direction">${dirsMap[dir]}/F${frameData.frame + 1}</div>
-                            <img src="${amApi}/asset/${frameData.asset.id}" class="checkered dmi-icon" />
-                        </div>`);
-                });
+
+    $('#results-container').on('click', '.preview-zone, .dir-toggle', e => {
+        e.preventDefault();
+        const card = $(e.target).closest('.sprite-card');
+        renderDetails(card);
+    });
+
+    $('#results-container').on('click', '.copy-img', function () {
+        copyImage($(this), $(this).closest('.sprite-card'));
+    });
+
+    const copyImage = async (btn, card) => {
+        const asset = card.attr('data-preview');
+        const flash = (ok, note) => {
+            if (note) btn.attr('title', note);
+            btn.toggleClass('copied', ok);
+            setTimeout(() => btn.removeClass('copied'), 900);
+        };
+
+        const asJpeg = async () => {
+            const r = await fetch(`${amApi}/asset/${asset}`);
+            if (!r.ok) throw new Error('asset fetch failed');
+            return await jpegFromBlob(await r.blob());
+        };
+
+        try {
+            const jpeg = await asJpeg();
+            if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/jpeg': jpeg })]);
+                flash(true);
+                return;
             }
-            container.append(resultContainer);
-            
-            // open container after completed
-            container.attr('data-status', 'rendered').collapse('show');
-        });
-        
-        request.fail(error => {
-            $('#alert-container').append($(`
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <strong>Failed to get sprite details:</strong> ${error.responseText}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>`));
-        });
-        
-        request.always(() => {
-            button.prop('disabled', false).text('Dirs');
-        });
+            throw new Error('no clipboard image support');
+        } catch (e1) {
+            try {
+                const jpeg = await asJpeg();
+                const url = URL.createObjectURL(jpeg);
+                const a = document.createElement('a');
+                const name = card.find('.sprite-name').text() || 'sprite';
+                a.href = url;
+                a.download = `${name.replace(/[\\/:*?"<>|]/g, '_')}.jpg`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+                flash(true, 'Saved as file');
+            } catch (e2) {
+                flash(false);
+            }
+        }
+    };
+
+    const jpegFromBlob = (blob) => new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const image = new Image();
+        image.onload = () => {
+            URL.revokeObjectURL(url);
+            const w = Math.max(image.naturalWidth, 1);
+            const h = Math.max(image.naturalHeight, 1);
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(image, 0, 0, w, h);
+            canvas.toBlob(b => b ? resolve(b) : reject(new Error('jpeg encode failed')), 'image/jpeg', 0.92);
+        };
+        image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load failed')); };
+        image.src = url;
+    });
+
+    const renderDetails = (card) => {
+        const panel = card.find('.dirs-panel');
+        if (panel.attr('data-status') === 'rendered') { panel.collapse('toggle'); return; }
+        if (panel.attr('data-status') === 'loading') return;
+        const id = card.attr('data-id');
+        panel.attr('data-status', 'loading');
+        const button = card.find('.dir-toggle');
+        button.prop('disabled', true);
+
+        $.ajax({ url: `${amApi}/sprite/${id}`, type: 'GET', dataType: 'json' })
+            .done(data => {
+                const grid = panel.find('.dirs-grid').empty();
+                for (let dir = 0; dir < data.dirs; dir++) {
+                    if (data.renderedAnimations) {
+                        const anim = data.renderedAnimations.find(e => e.direction === dir);
+                        if (anim !== undefined)
+                            grid.append($(`<div class="dir-cell"><div class="dir-label">${dirsMap[dir]}/GIF</div><img src="${amApi}/asset/${anim.asset.id}" alt="${dirsMap[dir]} animated"/></div>`));
+                    }
+                    const frames = data.spriteFrames.filter(e => e.direction === dir);
+                    if (frames === undefined || frames.length === 0) continue;
+                    frames.forEach(frameData => {
+                        grid.append(`<div class="dir-cell"><div class="dir-label">${dirsMap[dir]}/F${frameData.frame + 1}</div><img src="${amApi}/asset/${frameData.asset.id}" alt="${dirsMap[dir]} frame ${frameData.frame + 1}"/></div>`);
+                    });
+                }
+                panel.attr('data-status', 'rendered').collapse('show');
+            })
+            .fail(error => {
+                panel.attr('data-status', 'error');
+                $('#alert-container').append($(`
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <strong>Failed to get sprite details:</strong> ${error.responseText}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`));
+            })
+            .always(() => button.prop('disabled', false));
     };
 </script>
