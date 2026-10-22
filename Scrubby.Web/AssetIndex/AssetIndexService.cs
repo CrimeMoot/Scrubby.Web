@@ -11,7 +11,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Formats.Tar;
 using DMISharp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -574,35 +573,27 @@ public class AssetIndexService
 
             await using var tarball = await response.Content.ReadAsStreamAsync(cancellationToken);
             await using var gzip = new GZipStream(tarball, CompressionMode.Decompress);
-            using var tar = new TarReader(gzip);
-            TarEntry entry;
-            while ((entry = tar.GetNextEntry()) != null)
+            await DmiTarEnumerator.EnumerateDmiAsync(gzip, async (tarPath, dmiBytes) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (entry.EntryType != TarEntryType.RegularFile || entry.DataStream == null ||
-                    !entry.Name.EndsWith(".dmi", StringComparison.OrdinalIgnoreCase))
-                    continue;
 
-                var dmiPath = NormalizeTarPath(entry.Name);
-                using var ms = new MemoryStream();
-                await entry.DataStream.CopyToAsync(ms, cancellationToken);
-
+                var dmiPath = NormalizeTarPath(tarPath);
                 if (_renderAssets)
                 {
                     Directory.CreateDirectory(dmiDir);
                     var localDmi = Path.Combine(dmiDir, dmiPath);
                     Directory.CreateDirectory(Path.GetDirectoryName(localDmi)!);
-                    await File.WriteAllBytesAsync(localDmi, ms.ToArray(), cancellationToken);
+                    await File.WriteAllBytesAsync(localDmi, dmiBytes, cancellationToken);
                 }
 
-                ms.Position = 0;
+                using var ms = new MemoryStream(dmiBytes, writable: false);
                 foreach (var record in IndexDmi(repo.Name, repoId, dmiPath, ms, _repoInfo.TryGetValue(repo.Name, out var ri) ? ri.LastCheckedCommit : null))
                 {
                     sprites.Add(record);
                     if (_renderAssets)
                         RenderPreview(assetsDir, record, ms);
                 }
-            }
+            }, cancellationToken);
 
             foreach (var sprite in sprites) AddSpriteInMemory(sprite);
             SaveCompactIndex(repo.Name, sprites);
