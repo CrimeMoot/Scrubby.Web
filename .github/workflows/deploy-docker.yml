@@ -3,9 +3,6 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
-env:
-  DOTNET_NOLOGO: true
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 permissions:
   packages: write
   contents: read
@@ -15,21 +12,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "9.0.x"
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build Scrubby.Web server image
-        run: |
-          dotnet publish Scrubby.Web -c Release -t:PublishContainer
-          docker images ghcr.io/crimemoot/scrubby.web --format "{{.Repository}}:{{.Tag}} ({{.Size}})"
+        run: docker build -f Scrubby.Web/Dockerfile -t ghcr.io/crimemoot/scrubby.web:latest .
+
       - name: Push container
         run: docker push ghcr.io/crimemoot/scrubby.web:latest

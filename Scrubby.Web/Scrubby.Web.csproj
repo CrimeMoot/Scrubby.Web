@@ -2,10 +2,6 @@
 
     <PropertyGroup>
         <UserSecretsId>0928caad-0ee4-4f6b-b390-7f068139e559</UserSecretsId>
-        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-        <ContainerRepository>ghcr.io/crimemoot/scrubby.web</ContainerRepository>
-        <ContainerUser>root</ContainerUser>
-        <ContainerEntrypoint>dotnet Scrubby.Web.dll</ContainerEntrypoint>
     </PropertyGroup>
 
     <ItemGroup>
