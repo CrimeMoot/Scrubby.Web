@@ -28,6 +28,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Scrubby.Web server image
-        run: dotnet publish Scrubby.Web -p:PublishProfile=DefaultContainer -c Release
+        run: |
+          dotnet publish Scrubby.Web -c Release -t:PublishContainer
+          docker images ghcr.io/crimemoot/scrubby.web --format "{{.Repository}}:{{.Tag}} ({{.Size}})"
       - name: Push container
         run: docker push ghcr.io/crimemoot/scrubby.web:latest
