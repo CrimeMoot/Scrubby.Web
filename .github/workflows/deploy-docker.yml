@@ -1,20 +1,24 @@
 name: Publish Scrubby.Web Container
 on:
-  release:
-    types: [created]
+  push:
+    branches: [master]
+  workflow_dispatch:
 env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+permissions:
+  packages: write
+  contents: read
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "9.0.x"
       - name: Login to GitHub Container Registry
@@ -25,3 +29,5 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Scrubby.Web server image
         run: dotnet publish Scrubby.Web -p:PublishProfile=DefaultContainer -c Release
+      - name: Push container
+        run: docker push ghcr.io/crimemoot/scrubby.web:latest

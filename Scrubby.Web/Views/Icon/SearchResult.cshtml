@@ -1,5 +1,6 @@
 ﻿@using System.Text.Json
 @model IconSearchResultModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 @{
     ViewData["Title"] = "Icon Search";
 }
@@ -37,7 +38,7 @@
 <div id="results-container"></div>
 
 <script>
-    const amApi = "https://am.melonmesa.com/api";
+    const amApi = "@(Config["IconSearch:ApiBaseUrl"] ?? "/api/asset")";
     let infCont = null;
     let records = null;
     let drawing = false;

@@ -1,0 +1,54 @@
+name: Build Asset Index
+
+# Builds the compact sprite index (repos.json + index/*.json.gz) from all configured
+# repositories and publishes it to the "asset-data" branch. Scrubby.Web reads that branch
+# when AssetIndex:RemoteBaseUrl is set, so nothing has to be built or stored locally.
+
+on:
+  schedule:
+    - cron: "0 3 * * 0" # weekly, Sunday 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      only_repos:
+        description: "Comma-separated repository allow-list (empty = all configured)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build indexer image
+        run: docker build -f Scrubby.AssetIndexer/Dockerfile -t scrubby-asset-indexer .
+
+      - name: Build asset index
+        run: |
+          mkdir -p out
+          docker run --rm \
+            -v "$PWD/out:/out" \
+            -e AssetIndex__OnlyRepos="${{ github.event.inputs.only_repos }}" \
+            scrubby-asset-indexer
+
+      - name: Show output
+        run: |
+          echo "Indexed files:"
+          find out -type f | head -50
+          du -sh out
+
+      - name: Publish to asset-data branch
+        run: |
+          cd out
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q -b asset-data
+          git add -A
+          git commit -qm "Update asset index ($(date -u +%Y-%m-%dT%H:%M:%SZ))"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -f origin asset-data

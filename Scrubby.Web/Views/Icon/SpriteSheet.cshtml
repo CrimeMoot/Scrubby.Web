@@ -1,5 +1,6 @@
 ﻿@using System.Text.Json
 @model DMIViewModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 @{
     var pathComponents = Model.Path.Split('/', StringSplitOptions.RemoveEmptyEntries);
     var filename = pathComponents.Last();
@@ -29,7 +30,7 @@
 <div id="results-container"></div>
 
 <script>
-    const amApi = "https://am.melonmesa.com/api";
+    const amApi = "@(Config["IconSearch:ApiBaseUrl"] ?? "/api/asset")";
     const urlBase = "@(Context.Request.Scheme)://@(Context.Request.Host)/dmi";
     let infCont = null;
     let records = null;
@@ -92,7 +93,7 @@
 
         records.splice(0, count - 1).forEach(record => {
             // Determine preview asset
-            const previewAsset = record.renderedAnimations !== undefined && record.renderedAnimations.length > 0 
+            const previewAsset = record.renderedAnimations && record.renderedAnimations.length > 0 
                 ? record.renderedAnimations[0].asset.id 
                 : record.spriteFrames[0].asset.id;
             

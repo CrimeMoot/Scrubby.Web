@@ -1,0 +1,354 @@
+[
+  {
+    "name": "daedalusdock",
+    "displayName": "Daedalus Dock",
+    "gitURL": "https://github.com/DaedalusDock/daedalusdock.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "fulp",
+    "displayName": "Fulpstation",
+    "gitURL": "https://github.com/fulpstation/fulpstation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "is12-warfare",
+    "displayName": "Interstation12: Warfare",
+    "gitURL": "https://github.com/Project-IS12/IS12-Warfare.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "bay",
+    "displayName": "Baystation12",
+    "gitURL": "https://github.com/Baystation12/Baystation12.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "paradise",
+    "displayName": "Paradise Station",
+    "gitURL": "https://github.com/ParadiseSS13/Paradise.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "tgmc",
+    "displayName": "TGMC",
+    "gitURL": "https://github.com/tgstation/TerraGov-Marine-Corps.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC-BY-NC 3",
+    "enabled": true
+  },
+  {
+    "name": "blackstone",
+    "displayName": "Blackstone",
+    "gitURL": "https://github.com/Blackstone-SS13/BLACKSTONE.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "monkestation",
+    "displayName": "Monkestation",
+    "gitURL": "https://github.com/Monkestation/Monkestation2.0.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "nsv13",
+    "displayName": "NSV13",
+    "gitURL": "https://github.com/BeeStation/NSV13.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "nebula",
+    "displayName": "Nebula 13",
+    "gitURL": "https://github.com/NebulaSS13/Nebula.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "hippie",
+    "displayName": "HippieStation 13",
+    "gitURL": "https://github.com/HippieStation/HippieStationdeprecated2020.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "foundation-19",
+    "displayName": "Foundation-19",
+    "gitURL": "https://github.com/Foundation-19/Foundation-19.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "taucetistation",
+    "displayName": "Tau Ceti Station",
+    "gitURL": "https://github.com/TauCetiStation/TauCetiClassic.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "civ13",
+    "displayName": "Civilization 13",
+    "gitURL": "https://github.com/Civ13/Civ13.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "mojavesun",
+    "displayName": "Mojave Sun",
+    "gitURL": "https://github.com/Mojave-Sun/mojave-sun-13.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "shiptest",
+    "displayName": "Shiptest",
+    "gitURL": "https://github.com/shiptest-ss13/Shiptest.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "vorestation",
+    "displayName": "VOREStation",
+    "gitURL": "https://github.com/VOREStation/VOREStation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "sojourn",
+    "displayName": "Sojourn 13",
+    "gitURL": "https://github.com/sojourn-13/sojourn-station.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "beestation",
+    "displayName": "BeeStation",
+    "gitURL": "https://github.com/BeeStation/BeeStation-Hornet.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC-BY-NC 3",
+    "enabled": true
+  },
+  {
+    "name": "tgmc-ru",
+    "displayName": "TGMC RU",
+    "gitURL": "https://github.com/Cosmic-Overlord/RU-TerraGov-Marine-Corps.git",
+    "defaultBranch": "master",
+    "assetLicense": "Mixed",
+    "enabled": true
+  },
+  {
+    "name": "splurt",
+    "displayName": "S.P.L.U.R.T. Station 13",
+    "gitURL": "https://github.com/SPLURT-Station/S.P.L.U.R.T-Station-13.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "tgstation",
+    "displayName": "/tg/station",
+    "gitURL": "https://github.com/tgstation/tgstation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "austation",
+    "displayName": "AuStation",
+    "gitURL": "https://github.com/austation/austation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "vgstation",
+    "displayName": "/vg/station",
+    "gitURL": "https://github.com/vgstation-coders/vgstation13.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "polaris",
+    "displayName": "Polaris",
+    "gitURL": "https://github.com/PolarisSS13/Polaris.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "bubber",
+    "displayName": "Bubberstation",
+    "gitURL": "https://github.com/Bubberstation/Bubberstation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "yog",
+    "displayName": "YogStation",
+    "gitURL": "https://github.com/yogstation13/Yogstation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "ds13-2.0",
+    "displayName": "Dead Space 13 2.0",
+    "gitURL": "https://github.com/DS-13-Dev-Team/DS13-2.0.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "ds13-1.0",
+    "displayName": "Dead Space 13 1.0",
+    "gitURL": "https://github.com/DS-13-Dev-Team/DS13-1.0.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "aurora",
+    "displayName": "Aurorastation",
+    "gitURL": "https://github.com/Aurorastation/Aurora.3.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC-BY-NC 3",
+    "enabled": true
+  },
+  {
+    "name": "skyrat",
+    "displayName": "Skyrat",
+    "gitURL": "https://github.com/Skyrat-SS13/Skyrat-tg.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "cmss13",
+    "displayName": "Colonial Marines",
+    "gitURL": "https://github.com/cmss13-devs/cmss13.git",
+    "defaultBranch": "master",
+    "assetLicense": "Mixed",
+    "enabled": true
+  },
+  {
+    "name": "goon",
+    "displayName": "GoonStation",
+    "gitURL": "https://github.com/goonstation/goonstation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-NC-SA",
+    "enabled": true
+  },
+  {
+    "name": "citadel",
+    "displayName": "Citadel Station",
+    "gitURL": "https://github.com/Citadel-Station-13/Citadel-Station-13.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "eris",
+    "displayName": "CEV-Eris",
+    "gitURL": "https://github.com/discordia-space/CEV-Eris.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "paradise-ru",
+    "displayName": "Paradise Station RU",
+    "gitURL": "https://github.com/ss220-space/Paradise.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "lobotomy-corp13",
+    "displayName": "Lobotomy Corporation 13",
+    "gitURL": "https://github.com/vlggms/lobotomy-corp13.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "onyxbay",
+    "displayName": "OnyxBay",
+    "gitURL": "https://github.com/ChaoticOnyx/OnyxBay.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "novasector",
+    "displayName": "Nova Sector",
+    "gitURL": "https://github.com/NovaSector/NovaSector.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "burger",
+    "displayName": "Burgerstation",
+    "gitURL": "https://github.com/BurgerLUA/burgerstation.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "interpost-redux",
+    "displayName": "Interpost Redux",
+    "gitURL": "https://github.com/NEONXSAMURAI/Interpost-Redux.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "citadel-station-13-rp",
+    "displayName": "Citadel Station 13 RP",
+    "gitURL": "https://github.com/Citadel-Station-13/Citadel-Station-13-RP.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "deltav",
+    "displayName": "Delta-V",
+    "gitURL": "https://github.com/DeltaV-Station/Delta-v.git",
+    "defaultBranch": "master",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  },
+  {
+    "name": "haven13",
+    "displayName": "Haven-13",
+    "gitURL": "https://github.com/Haven-13/Haven-Urist.git",
+    "defaultBranch": "latest",
+    "assetLicense": "CC BY-SA 3",
+    "enabled": true
+  }
+]

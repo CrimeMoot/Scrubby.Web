@@ -3,45 +3,31 @@
     <PropertyGroup>
         <UserSecretsId>0928caad-0ee4-4f6b-b390-7f068139e559</UserSecretsId>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
-        <ContainerRepository>ghcr.io/bobbah/scrubby.web</ContainerRepository>
+        <ContainerRepository>ghcr.io/crimemoot/scrubby.web</ContainerRepository>
         <ContainerUser>root</ContainerUser>
         <ContainerEntrypoint>dotnet Scrubby.Web.dll</ContainerEntrypoint>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Dapper" Version="2.1.66"/>
-        <PackageReference Include="DMISharp" Version="2.1.0"/>
+        <PackageReference Include="DMISharp" Version="2.1.0" />
         <PackageReference Include="LigerShark.WebOptimizer.Core" Version="3.0.477" />
-        <PackageReference Include="Markdig" Version="0.42.0" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.9" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.9" />
-        <PackageReference Include="MimeMapping" Version="3.1.0"/>
         <PackageReference Include="MinVer" Version="6.0.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-        <PackageReference Include="NodaTime.Serialization.JsonNet" Version="3.2.0"/>
-        <PackageReference Include="Npgsql" Version="9.0.3"/>
-        <PackageReference Include="RestEase" Version="1.6.4"/>
-        <PackageReference Include="RestEase.HttpClientFactory" Version="1.6.4"/>
-        <PackageReference Include="RestSharp" Version="112.1.0"/>
-        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
-        <PackageReference Include="Tgstation.Auth" Version="1.1.0"/>
-        <PackageReference Include="WebStoating.Markdig.Prism" Version="1.0.0"/>
+        <!-- NU1902/NU1903: known ImageSharp advisories are patched in 4.1.2, which is incompatible with
+             DMISharp 2.1.0; they require adversarial 32-bit float TIFF subjects via HistogramEqualization,
+             which this app never processes (it only decodes DMI PNGs). -->
+        <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" NoWarn="NU1902;NU1903" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Update="Views\FAQ\FAQ.md">
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </None>
         <None Update="wwwroot\robots.txt">
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </None>
     </ItemGroup>
 
-    <ItemGroup>
-      <_ContentIncludedByDefault Remove="Views\File\View.cshtml" />
-      <_ContentIncludedByDefault Remove="Views\Runtime\GetRound.cshtml" />
-    </ItemGroup>
 </Project>

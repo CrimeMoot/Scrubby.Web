@@ -1,10 +1,9 @@
-﻿using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
-using Scrubby.Web.Services.Interfaces;
+﻿using Microsoft.AspNetCore.Mvc;
 
 namespace Scrubby.Web.Controllers;
 
-public class HomeController(IScrubbyService scrubby) : Controller
+public class HomeController : Controller
 {
-    public async Task<IActionResult> Index() => View(await scrubby.GetBasicStats());
+    [HttpGet("/")]
+    public IActionResult Index() => RedirectToAction("SearchIcon", "Icon");
 }
