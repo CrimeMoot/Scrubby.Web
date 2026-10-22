@@ -22,4 +22,4 @@ Console.WriteLine($"Done: {status.IndexedRepos}/{status.TotalRepos} repos indexe
 foreach (var error in status.Errors)
     Console.WriteLine($"  ! {error}");
 
-return status.FailedRepos > 0 ? 1 : 0;
+return status.IndexedRepos == 0 && status.TotalRepos > 0 ? 1 : 0;
