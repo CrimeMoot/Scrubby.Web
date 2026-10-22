@@ -4,6 +4,7 @@
         <OutputType>Exe</OutputType>
         <RootNamespace>Scrubby.AssetIndexer</RootNamespace>
         <AssemblyName>Scrubby.AssetIndexer</AssemblyName>
+        <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
     </PropertyGroup>
 
     <ItemGroup>
